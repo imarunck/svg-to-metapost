@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG To Metapost</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f5f5;
+      --bg2: #ffffff;
+      --bg3: #f0f0f0;
+      --border: #d9d9d9;
+      --text: #1a1a1a;
+      --text2: #555;
+      --text3: #888;
+      --accent: #AF1C2E;
+      --accent-hover: #c52a3d;
+      --green: #16a34a;
+      --red: #dc2626;
+      --radius: 8px;
+      --mono: 'Fira Mono', 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    header { margin-bottom: 2rem; }
+    header h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
+    header h1 span { color: var(--accent); }
+    header p { color: var(--text2); font-size: 0.875rem; margin-top: 0.35rem; }
+
+    .label {
+      font-size: 11px;
+      color: var(--text2);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      padding: 12px 14px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    textarea:focus { border-color: var(--accent); }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 0;
+    }
+
+    .mode-group { display: flex; flex-direction: column; gap: 5px; }
+    .mode-group .label { margin-bottom: 0; }
+    .tabs {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .tab {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-family: var(--sans);
+      background: transparent;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .tab:not(:last-child) { border-right: 1px solid var(--border); }
+    .tab.active { background: var(--bg3); color: var(--text); font-weight: 500; }
+    .tab:hover:not(.active) { background: var(--bg3); color: var(--text); }
+
+    .opt-group { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    .opt {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--text2);
+      cursor: pointer;
+      user-select: none;
+    }
+    .opt input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+    .opt:hover { color: var(--text); }
+
+    .fig-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text2); }
+    .fig-row input[type="number"] {
+      width: 58px;
+      padding: 5px 8px;
+      font-size: 13px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      outline: none;
+    }
+    .fig-row input:focus { border-color: var(--accent); }
+
+    .btn-row { display: flex; gap: 8px; margin-left: auto; }
+
+    button.btn {
+      padding: 7px 16px;
+      font-size: 13px;
+      font-family: var(--sans);
+      font-weight: 500;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      transition: background 0.12s, transform 0.08s;
+    }
+    button.btn:active { transform: scale(0.97); }
+    button.btn-primary { background: var(--accent); color: #fff; }
+    button.btn-primary:hover { background: var(--accent-hover); }
+    button.btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+    button.btn-secondary:hover { color: var(--text); }
+
+    .out-section { margin-top: 4px; }
+    .out-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+
+    .out-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.75;
+      white-space: pre;
+      overflow-x: auto;
+      min-height: 120px;
+      color: var(--text);
+      position: relative;
+    }
+    .out-placeholder { color: var(--text3); font-style: italic; }
+
+    .err { color: var(--red); font-size: 13px; margin-top: 8px; }
+    .hint { color: var(--text3); font-size: 12px; margin-top: 8px; line-height: 1.5; }
+
+    /* syntax highlight classes applied by JS */
+    .mp-keyword { color: #c084fc; }
+    .mp-zvar   { color: #60a5fa; }
+    .mp-num    { color: #fdba74; }
+    .mp-op     { color: #94a3b8; }
+    .mp-color  { color: var(--green); }
+    .mp-comment { color: #555; font-style: italic; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+    .section { margin-bottom: 1.5rem; }
+
+    @media (max-width: 600px) {
+      body { padding: 1rem; }
+      .btn-row { margin-left: 0; width: 100%; }
+      button.btn { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>SVG <span>→</span> MetaPost</h1>
+    <p>Converts SVG path data to MetaPost z-point notation (z0..z1..z2..)</p>
+  </header>
+
+  <div class="section">
+    <div class="label">SVG input</div>
+    <textarea id="svgIn" rows="6" placeholder="Paste SVG code here, e.g.  <svg ...><path d=&quot;M150 500 C...&quot; /></svg>"></textarea>
+  </div>
+
+  <div class="controls">
+
+    <div class="fig-row">
+      <span>beginfig(</span>
+      <input type="number" id="figNum" value="0" min="0" max="999">
+      <span>)</span>
+    </div>
+
+    <div class="mode-group">
+      <div class="label">output mode</div>
+      <div class="tabs">
+        <button class="tab active" data-mode="relative">relative (x1+N)</button>
+        <button class="tab" data-mode="absolute">absolute</button>
+        <button class="tab" data-mode="bezier">full bezier</button>
+      </div>
+    </div>
+
+    <div class="opt-group">
+      <label class="opt"><input type="checkbox" id="chkColor" checked> stroke color</label>
+      <label class="opt"><input type="checkbox" id="chkScale" checked> scale to 250</label>
+      <label class="opt"><input type="checkbox" id="chkHighlight" checked> highlight</label>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="convertBtn">Convert</button>
+      <button class="btn btn-secondary" id="copyBtn">Copy</button>
+    </div>
+
+  </div>
+
+  <div class="out-section">
+    <div class="out-header">
+      <div class="label" style="margin-bottom:0">MetaPost output</div>
+    </div>
+    <div class="out-box" id="mpOut"><span class="out-placeholder">MetaPost code will appear here…</span></div>
+    <div class="err" id="errMsg"></div>
+    <div class="hint" id="hintMsg"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const $ = id => document.getElementById(id);
+let currentMode = 'relative';
+
+function num(v) { return parseFloat(v) || 0; }
+function r2(v)  { return +parseFloat(v).toFixed(2); }
+
+function parseColor(c) {
+  if (!c || c === 'none' || c === 'transparent') return null;
+  const named = { black:'(0,0,0)', white:'(1,1,1)', red:'(1,0,0)', green:'(0,0.5,0)', blue:'(0,0,1)', yellow:'(1,1,0)' };
+  if (named[c.toLowerCase()]) return named[c.toLowerCase()];
+  let m = c.match(/^#([0-9a-f]{6})$/i);
+  if (m) {
+    const r = (parseInt(m[1].slice(0,2),16)/255).toFixed(2);
+    const g = (parseInt(m[1].slice(2,4),16)/255).toFixed(2);
+    const b = (parseInt(m[1].slice(4,6),16)/255).toFixed(2);
+    return `(${r},${g},${b})`;
+  }
+  m = c.match(/^#([0-9a-f]{3})$/i);
+  if (m) {
+    const r = (parseInt(m[1][0]+m[1][0],16)/255).toFixed(2);
+    const g = (parseInt(m[1][1]+m[1][1],16)/255).toFixed(2);
+    const b = (parseInt(m[1][2]+m[1][2],16)/255).toFixed(2);
+    return `(${r},${g},${b})`;
+  }
+  m = c.match(/rgb\((\d+(?:\.\d+)?%?),\s*(\d+(?:\.\d+)?%?),\s*(\d+(?:\.\d+)?%?)\)/);
+  if (m) {
+    const pct = v => v.includes('%') ? parseFloat(v)/100 : parseFloat(v)/255;
+    return `(${pct(m[1]).toFixed(2)},${pct(m[2]).toFixed(2)},${pct(m[3]).toFixed(2)})`;
+  }
+  return null;
+}
+
+// ─── SVG Path Parser ──────────────────────────────────────────────────────────
+
+function tokenizePath(d) {
+  return d.match(/[MmZzLlHhVvCcSsQqTtAa]|[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?/g) || [];
+}
+
+function parsePath(d) {
+  const tokens = tokenizePath(d);
+  const segs = [];
+  let i = 0, cx = 0, cy = 0, startX = 0, startY = 0;
+  let lastCmd = '', prevCx2 = null, prevCy2 = null;
+
+  function readN(n) {
+    const v = [];
+    for (let k = 0; k < n; k++) v.push(num(tokens[i++]));
+    return v;
+  }
+
+  while (i < tokens.length) {
+    const t = tokens[i];
+    if (/[MmZzLlHhVvCcSsQqTtAa]/.test(t)) { lastCmd = t; i++; }
+
+    switch (lastCmd) {
+      case 'M': { const [x,y] = readN(2); cx=x; cy=y; startX=x; startY=y; segs.push({type:'move',x,y}); lastCmd='L'; prevCx2=null; break; }
+      case 'm': { const [dx,dy] = readN(2); cx+=dx; cy+=dy; startX=cx; startY=cy; segs.push({type:'move',x:cx,y:cy}); lastCmd='l'; prevCx2=null; break; }
+      case 'L': { const [x,y] = readN(2); segs.push({type:'line',x1:cx,y1:cy,x2:x,y2:y}); cx=x; cy=y; prevCx2=null; break; }
+      case 'l': { const [dx,dy] = readN(2); segs.push({type:'line',x1:cx,y1:cy,x2:cx+dx,y2:cy+dy}); cx+=dx; cy+=dy; prevCx2=null; break; }
+      case 'H': { const [x] = readN(1); segs.push({type:'line',x1:cx,y1:cy,x2:x,y2:cy}); cx=x; prevCx2=null; break; }
+      case 'h': { const [dx] = readN(1); segs.push({type:'line',x1:cx,y1:cy,x2:cx+dx,y2:cy}); cx+=dx; prevCx2=null; break; }
+      case 'V': { const [y] = readN(1); segs.push({type:'line',x1:cx,y1:cy,x2:cx,y2:y}); cy=y; prevCx2=null; break; }
+      case 'v': { const [dy] = readN(1); segs.push({type:'line',x1:cx,y1:cy,x2:cx,y2:cy+dy}); cy+=dy; prevCx2=null; break; }
+      case 'C': { const [x1,y1,x2,y2,x,y] = readN(6); segs.push({type:'curve',x1:cx,y1:cy,cx1:x1,cy1:y1,cx2:x2,cy2:y2,x2:x,y2:y}); prevCx2=x2; prevCy2=y2; cx=x; cy=y; break; }
+      case 'c': { const [dx1,dy1,dx2,dy2,dx,dy] = readN(6); const ax=cx+dx,ay=cy+dy; segs.push({type:'curve',x1:cx,y1:cy,cx1:cx+dx1,cy1:cy+dy1,cx2:cx+dx2,cy2:cy+dy2,x2:ax,y2:ay}); prevCx2=cx+dx2; prevCy2=cy+dy2; cx=ax; cy=ay; break; }
+      case 'S': { const [x2,y2,x,y] = readN(4); const sx1=prevCx2!=null?2*cx-prevCx2:cx, sy1=prevCy2!=null?2*cy-prevCy2:cy; segs.push({type:'curve',x1:cx,y1:cy,cx1:sx1,cy1:sy1,cx2:x2,cy2:y2,x2:x,y2:y}); prevCx2=x2; prevCy2=y2; cx=x; cy=y; break; }
+      case 's': { const [dx2,dy2,dx,dy] = readN(4); const sx1=prevCx2!=null?2*cx-prevCx2:cx, sy1=prevCy2!=null?2*cy-prevCy2:cy; const ax=cx+dx,ay=cy+dy; segs.push({type:'curve',x1:cx,y1:cy,cx1:sx1,cy1:sy1,cx2:cx+dx2,cy2:cy+dy2,x2:ax,y2:ay}); prevCx2=cx+dx2; prevCy2=cy+dy2; cx=ax; cy=ay; break; }
+      case 'Q': { const [qx1,qy1,qx,qy] = readN(4); const bcx1=cx+2/3*(qx1-cx),bcy1=cy+2/3*(qy1-cy),bcx2=qx+2/3*(qx1-qx),bcy2=qy+2/3*(qy1-qy); segs.push({type:'curve',x1:cx,y1:cy,cx1:bcx1,cy1:bcy1,cx2:bcx2,cy2:bcy2,x2:qx,y2:qy}); prevCx2=bcx2; prevCy2=bcy2; cx=qx; cy=qy; break; }
+      case 'q': { const [dqx1,dqy1,dqx,dqy] = readN(4); const qx1=cx+dqx1,qy1=cy+dqy1,qx=cx+dqx,qy=cy+dqy; const bcx1=cx+2/3*(qx1-cx),bcy1=cy+2/3*(qy1-cy),bcx2=qx+2/3*(qx1-qx),bcy2=qy+2/3*(qy1-qy); segs.push({type:'curve',x1:cx,y1:cy,cx1:bcx1,cy1:bcy1,cx2:bcx2,cy2:bcy2,x2:qx,y2:qy}); prevCx2=bcx2; prevCy2=bcy2; cx=qx; cy=qy; break; }
+      case 'Z': case 'z': segs.push({type:'close',x:startX,y:startY}); cx=startX; cy=startY; prevCx2=null; break;
+      default: i++; break;
+    }
+  }
+  return segs;
+}
+
+// ─── Coordinate transform ─────────────────────────────────────────────────────
+
+function makeTransform(svgW, svgH, vbX, vbY, doScale) {
+  const TARGET = 250;
+  const scaleX = doScale ? TARGET / svgW : 1;
+  const scaleY = doScale ? TARGET / svgH : 1;
+  return {
+    tx: x => r2((x - vbX) * scaleX),
+    ty: y => r2((svgH - (y - vbY)) * scaleY)
+  };
+}
+
+function transformSegs(segs, tx, ty) {
+  return segs.map(s => {
+    if (s.type === 'move')  return { ...s, x: tx(s.x), y: ty(s.y) };
+    if (s.type === 'line')  return { ...s, x1: tx(s.x1), y1: ty(s.y1), x2: tx(s.x2), y2: ty(s.y2) };
+    if (s.type === 'curve') return { ...s, x1: tx(s.x1), y1: ty(s.y1), cx1: tx(s.cx1), cy1: ty(s.cy1), cx2: tx(s.cx2), cy2: ty(s.cy2), x2: tx(s.x2), y2: ty(s.y2) };
+    if (s.type === 'close') return { ...s, x: tx(s.x), y: ty(s.y) };
+    return s;
+  });
+}
+
+// ─── Anchor point extraction ──────────────────────────────────────────────────
+
+function extractAnchors(segs) {
+  return segs.map(s => {
+    if (s.type === 'move')  return { x: s.x, y: s.y, segType: 'move' };
+    if (s.type === 'line')  return { x: s.x2, y: s.y2, segType: 'line' };
+    if (s.type === 'curve') return { x: s.x2, y: s.y2, segType: 'curve', cx1: s.cx1, cy1: s.cy1, cx2: s.cx2, cy2: s.cy2 };
+    if (s.type === 'close') return { x: s.x, y: s.y, segType: 'close' };
+    return null;
+  }).filter(Boolean);
+}
+
+// ─── Relative expression builder ─────────────────────────────────────────────
+
+function relExpr(val, refName, refVal) {
+  const delta = Math.round((val - refVal) * 100) / 100;
+  if (delta === 0)   return refName;
+  if (delta > 0)     return `${refName}+${delta}`;
+  return `${refName}${delta}`;  // negative already has minus sign
+}
+
+function buildRelDefs(anchors) {
+  return anchors.map((p, i) => {
+    let xExpr = `${p.x}`;
+    let yExpr = `${p.y}`;
+
+    if (i > 0) {
+      let bestX = null, bestXD = Infinity;
+      let bestY = null, bestYD = Infinity;
+      for (let j = 0; j < i; j++) {
+        const dx = Math.abs(p.x - anchors[j].x);
+        const dy = Math.abs(p.y - anchors[j].y);
+        if (dx < bestXD) { bestXD = dx; bestX = j; }
+        if (dy < bestYD) { bestYD = dy; bestY = j; }
+      }
+      // Use relative only if delta is meaningfully smaller than the absolute value
+      if (bestX !== null && bestXD < Math.abs(p.x) * 0.85)
+        xExpr = relExpr(p.x, `x${bestX}`, anchors[bestX].x);
+      if (bestY !== null && bestYD < Math.abs(p.y) * 0.85)
+        yExpr = relExpr(p.y, `y${bestY}`, anchors[bestY].y);
+    }
+    return { xExpr, yExpr };
+  });
+}
+
+// ─── MetaPost code generators ─────────────────────────────────────────────────
+
+function genRelative(segs, anchors, opts) {
+  const defs = buildRelDefs(anchors);
+  const lines = defs.map((d, i) => `z${i} = (${d.xExpr}, ${d.yExpr});`);
+  const hasCurve = segs.some(s => s.type === 'curve');
+  const isClosed = segs.some(s => s.type === 'close');
+  const conn = hasCurve ? '..' : '--';
+  let path = anchors.map((_, i) => `z${i}`).join(conn);
+  if (isClosed) path += conn + 'cycle';
+  const trail = opts.length ? ' ' + opts.join(' ') : '';
+  if (opts.fill) lines.push(`fill ${path}${trail};`);
+  lines.push(`draw ${path}${trail};`);
+  return lines;
+}
+
+function genAbsolute(segs, anchors, opts) {
+  const lines = anchors.map((p, i) => `z${i} = (${p.x}, ${p.y});`);
+  const hasCurve = segs.some(s => s.type === 'curve');
+  const isClosed = segs.some(s => s.type === 'close');
+  const conn = hasCurve ? '..' : '--';
+  let path = anchors.map((_, i) => `z${i}`).join(conn);
+  if (isClosed) path += conn + 'cycle';
+  const trail = opts.length ? ' ' + opts.join(' ') : '';
+  lines.push(`draw ${path}${trail};`);
+  return lines;
+}
+
+function genBezier(segs, anchors, opts) {
+  const lines = anchors.map((p, i) => `z${i} = (${p.x}, ${p.y});`);
+  const parts = [];
+  let ai = 0;
+  for (const s of segs) {
+    if (s.type === 'move')  { parts.push(`z${ai}`); ai++; }
+    else if (s.type === 'line')  { parts.push(`-- z${ai}`); ai++; }
+    else if (s.type === 'curve') {
+      parts.push(`.. controls (${s.cx1},${s.cy1}) and (${s.cx2},${s.cy2}) .. z${ai}`); ai++;
+    }
+    else if (s.type === 'close') { parts.push('-- cycle'); }
+  }
+  const trail = opts.length ? '\n  ' + opts.join(' ') : '';
+  lines.push(`draw ${parts.join('\n  ')}${trail};`);
+  return lines;
+}
+
+// ─── Style attribute parser ───────────────────────────────────────────────────
+
+function getStyle(el, prop) {
+  // Check inline style first, then attribute
+  const style = el.getAttribute('style') || '';
+  const m = style.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`));
+  if (m) return m[1].trim();
+  return el.getAttribute(prop);
+}
+
+// ─── Main convert ─────────────────────────────────────────────────────────────
+
+function convert() {
+  $('errMsg').textContent = '';
+  $('hintMsg').textContent = '';
+  $('mpOut').innerHTML = '<span class="out-placeholder">MetaPost code will appear here…</span>';
+
+  const raw = $('svgIn').value.trim();
+  if (!raw) { $('errMsg').textContent = 'Paste SVG code above.'; return; }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(raw, 'image/svg+xml');
+  if (doc.querySelector('parsererror')) { $('errMsg').textContent = 'SVG parse error — check your input.'; return; }
+  const svg = doc.querySelector('svg');
+  if (!svg) { $('errMsg').textContent = 'No <svg> element found.'; return; }
+
+  // Resolve coordinate space from viewBox or width/height
+  let svgW, svgH, vbX = 0, vbY = 0;
+  const vb = svg.getAttribute('viewBox');
+  if (vb) {
+    const [vx, vy, vw, vh] = vb.split(/[\s,]+/).map(Number);
+    vbX = vx; vbY = vy; svgW = vw; svgH = vh;
+  } else {
+    svgW = parseFloat(svg.getAttribute('width'))  || 500;
+    svgH = parseFloat(svg.getAttribute('height')) || 500;
+  }
+
+  const doScale = $('chkScale').checked;
+  const doColor = $('chkColor').checked;
+  const doHL    = $('chkHighlight').checked;
+  const figN    = parseInt($('figNum').value) || 0;
+
+  const { tx, ty } = makeTransform(svgW, svgH, vbX, vbY, doScale);
+
+  const elements = doc.querySelectorAll('path,line,polyline,polygon,rect,circle,ellipse');
+  if (!elements.length) { $('errMsg').textContent = 'No drawable elements found in SVG.'; return; }
+
+  const allLines = [`beginfig(${figN});`];
+
+  elements.forEach(el => {
+    let d = '';
+    const tag = el.tagName.toLowerCase();
+
+    if (tag === 'path') {
+      d = el.getAttribute('d') || '';
+    } else if (tag === 'line') {
+      const x1=el.getAttribute('x1')||0, y1=el.getAttribute('y1')||0,
+            x2=el.getAttribute('x2')||0, y2=el.getAttribute('y2')||0;
+      d = `M${x1},${y1} L${x2},${y2}`;
+    } else if (tag === 'polyline' || tag === 'polygon') {
+      const pts = (el.getAttribute('points') || '').trim().split(/[\s,]+/);
+      let pd = '';
+      for (let k = 0; k < pts.length - 1; k += 2)
+        pd += (k === 0 ? 'M' : 'L') + pts[k] + ',' + pts[k+1] + ' ';
+      if (tag === 'polygon') pd += 'Z';
+      d = pd;
+    } else if (tag === 'rect') {
+      const x=num(el.getAttribute('x')), y=num(el.getAttribute('y')),
+            w=num(el.getAttribute('width')), h=num(el.getAttribute('height'));
+      d = `M${x},${y} L${x+w},${y} L${x+w},${y+h} L${x},${y+h} Z`;
+    } else if (tag === 'circle') {
+      const cx=num(el.getAttribute('cx')), cy=num(el.getAttribute('cy')), r=num(el.getAttribute('r'));
+      const k = 0.5523;
+      d = `M${cx-r},${cy} C${cx-r},${cy-r*k} ${cx-r*k},${cy-r} ${cx},${cy-r} C${cx+r*k},${cy-r} ${cx+r},${cy-r*k} ${cx+r},${cy} C${cx+r},${cy+r*k} ${cx+r*k},${cy+r} ${cx},${cy+r} C${cx-r*k},${cy+r} ${cx-r},${cy+r*k} ${cx-r},${cy} Z`;
+    } else if (tag === 'ellipse') {
+      const cx=num(el.getAttribute('cx')), cy=num(el.getAttribute('cy')),
+            rx=num(el.getAttribute('rx')), ry=num(el.getAttribute('ry'));
+      const k = 0.5523;
+      d = `M${cx-rx},${cy} C${cx-rx},${cy-ry*k} ${cx-rx*k},${cy-ry} ${cx},${cy-ry} C${cx+rx*k},${cy-ry} ${cx+rx},${cy-ry*k} ${cx+rx},${cy} C${cx+rx},${cy+ry*k} ${cx+rx*k},${cy+ry} ${cx},${cy+ry} C${cx-rx*k},${cy+ry} ${cx-rx},${cy+ry*k} ${cx-rx},${cy} Z`;
+    }
+
+    if (!d) return;
+
+    const rawSegs = parsePath(d);
+    if (!rawSegs.length) return;
+    const segs = transformSegs(rawSegs, tx, ty);
+    const anchors = extractAnchors(segs);
+
+    // Gather style options
+    const stroke    = getStyle(el, 'stroke');
+    const fill      = getStyle(el, 'fill');
+    const strokeW   = getStyle(el, 'stroke-width');
+
+    const opts = [];
+    if (doColor && stroke && stroke !== 'none') {
+      const sc = parseColor(stroke);
+      if (sc) opts.push(`withcolor ${sc}`);
+    }
+    if (strokeW && parseFloat(strokeW) !== 1)
+      opts.push(`withpen pencircle scaled ${parseFloat(strokeW)}pt`);
+
+    opts.fill = (fill && fill !== 'none') ? parseColor(fill) : null;
+
+    let bodyLines;
+    if (currentMode === 'relative') bodyLines = genRelative(segs, anchors, opts);
+    else if (currentMode === 'absolute') bodyLines = genAbsolute(segs, anchors, opts);
+    else bodyLines = genBezier(segs, anchors, opts);
+
+    allLines.push(...bodyLines);
+  });
+
+  allLines.push('endfig;');
+  allLines.push('end');
+
+  const code = allLines.join('\n');
+
+  if (doHL) {
+    $('mpOut').innerHTML = syntaxHighlight(code);
+  } else {
+    $('mpOut').textContent = code;
+  }
+
+  const hints = {
+    relative: 'z-points use relative expressions (x1+N, y0+N) — mirrors hand-written MetaPost style.',
+    absolute: 'z-points use plain absolute coordinates. Unambiguous and easy to verify.',
+    bezier:   'z-points mark anchors; Bézier control handles written with "controls … and …" syntax.'
+  };
+  $('hintMsg').textContent = hints[currentMode];
+}
+
+// ─── Syntax highlighter ───────────────────────────────────────────────────────
+
+function syntaxHighlight(code) {
+  return code
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\b(beginfig|endfig|draw|fill|end|withcolor|withpen|pencircle|scaled|controls|and|cycle)\b/g,
+      '<span class="mp-keyword">$1</span>')
+    .replace(/\b(z\d+|x\d+|y\d+)\b/g, '<span class="mp-zvar">$1</span>')
+    .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="mp-num">$1</span>')
+    .replace(/(\.\.|--|\.\.\.)/g, '<span class="mp-op">$1</span>')
+    .replace(/(%[^\n]*)/g, '<span class="mp-comment">$1</span>');
+}
+
+// ─── Event wiring ─────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    currentMode = t.dataset.mode;
+    convert();
+  });
+});
+
+$('convertBtn').addEventListener('click', convert);
+$('figNum').addEventListener('input', convert);
+$('chkColor').addEventListener('change', convert);
+$('chkScale').addEventListener('change', convert);
+$('chkHighlight').addEventListener('change', convert);
+$('svgIn').addEventListener('input', () => { if ($('svgIn').value.trim()) convert(); });
+
+$('copyBtn').addEventListener('click', () => {
+  // Copy plain text (no HTML tags)
+  const lines = [];
+  $('mpOut').querySelectorAll ? null : null;
+  const plain = $('mpOut').textContent;
+  if (plain && !plain.includes('MetaPost code will appear here')) {
+    navigator.clipboard.writeText(plain).then(() => {
+      $('copyBtn').textContent = '✓ Copied';
+      setTimeout(() => { $('copyBtn').textContent = 'Copy'; }, 1500);
+    });
+  }
+});
+
+// Pre-load example
+$('svgIn').value = `<svg width="500.762" height="500.518" viewBox="-20 -20 550.838 550.57"><path d="M150.51 500.268c-95.63-45.69-154.687-144.12-150-250 6.066-137.052 114.179-248.361 250-250 138.329-1.669 250.558 111.27 250 250-.555 137.841-112.16 249.446-250 250" style="stroke:#fff;stroke-width:.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;fill:none"/></svg>`;
+convert();
+</script>
+</body>
+</html>
